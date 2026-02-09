@@ -104,7 +104,7 @@ export default function Home() {
             )}
 
             {!loading && !error && (() => {
-              const activeBets = bets.filter((b) => b.contest.status !== "RESOLVED" && b.contest.status !== "PAID");
+              const activeBets = bets.filter((b) => b.contest.status !== "PAID");
               const completedBets = bets.filter((b) => b.contest.status === "PAID");
               return (
                 <>
@@ -134,7 +134,9 @@ export default function Home() {
 
             {!loading && !error && (() => {
               const bettedContestIds = new Set(bets.map((b) => b.contestId));
-              const available = contests.filter((c) => !bettedContestIds.has(c.id) && (c.status === "UPCOMING" || c.status === "OPEN"));
+              const available = contests
+                .filter((c) => !bettedContestIds.has(c.id) && (c.status === "UPCOMING" || c.status === "OPEN"))
+                .sort((a, b) => (a.status === "OPEN" ? -1 : 1) - (b.status === "OPEN" ? -1 : 1));
               return (
                 <section>
                   <h2 className="mb-4 text-lg font-semibold">Contests</h2>
