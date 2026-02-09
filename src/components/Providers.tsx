@@ -4,19 +4,24 @@ import { useEffect, useState } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { hyperliquidEvmTestnet } from "viem/chains";
 
-const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    if (process.env.NODE_ENV === "development") {
+      console.log("Privy App ID:", PRIVY_APP_ID || "NOT SET");
+    }
+  }, []);
 
-  if (!mounted || !appId || appId === "your_app_id_here") {
+  if (!mounted || !PRIVY_APP_ID) {
     return <>{children}</>;
   }
 
   return (
     <PrivyProvider
-      appId={appId}
+      appId={PRIVY_APP_ID}
       config={{
         defaultChain: hyperliquidEvmTestnet,
         supportedChains: [hyperliquidEvmTestnet],
