@@ -1,9 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 
 export default function LoginButton() {
   const { ready, authenticated, user, login, logout } = usePrivy();
+  const [copied, setCopied] = useState(false);
+
+  function copyAddress() {
+    if (!user?.wallet?.address) return;
+    navigator.clipboard.writeText(user.wallet.address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   if (!ready) {
     return null;
@@ -29,9 +38,15 @@ export default function LoginButton() {
           </p>
         )}
         {user?.wallet?.address && (
-          <p className="font-mono text-xs text-zinc-500 dark:text-zinc-500">
-            {user.wallet.address.slice(0, 6)}...{user.wallet.address.slice(-4)}
-          </p>
+          <button
+            onClick={copyAddress}
+            title={user.wallet.address}
+            className="font-mono text-xs text-zinc-500 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+          >
+            {copied
+              ? "Copied!"
+              : `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`}
+          </button>
         )}
       </div>
       <button

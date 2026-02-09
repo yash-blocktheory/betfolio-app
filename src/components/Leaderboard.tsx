@@ -6,9 +6,10 @@ interface LeaderboardProps {
   entries: LeaderboardEntry[];
   loading: boolean;
   showPayout?: boolean;
+  currentUserWallet?: string;
 }
 
-export default function Leaderboard({ entries, loading, showPayout }: LeaderboardProps) {
+export default function Leaderboard({ entries, loading, showPayout, currentUserWallet }: LeaderboardProps) {
   if (loading) {
     return <p className="text-center text-sm text-zinc-500">Loading leaderboard...</p>;
   }
@@ -30,12 +31,17 @@ export default function Leaderboard({ entries, loading, showPayout }: Leaderboar
             const displayUser = entry.user.walletAddress
               ? `${entry.user.walletAddress.slice(0, 6)}...${entry.user.walletAddress.slice(-4)}`
               : entry.user.id?.slice(0, 8) || "Unknown";
+            const isCurrentUser =
+              currentUserWallet &&
+              entry.user.walletAddress?.toLowerCase() === currentUserWallet.toLowerCase();
 
             return (
               <div
                 key={entry.betId}
                 className={`flex items-center px-4 py-3 text-sm ${
-                  entry.rank === 1 ? "bg-yellow-50 dark:bg-yellow-900/10" : ""
+                  isCurrentUser
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500"
+                    : ""
                 } border-b border-zinc-100 last:border-b-0 dark:border-zinc-800`}
               >
                 <span className="w-16 font-mono font-medium">

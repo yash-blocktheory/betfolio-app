@@ -21,7 +21,7 @@ type Picks = Record<string, "YES" | "NO">;
 export default function ContestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { ready, authenticated, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, getAccessToken } = usePrivy();
   const { sendTransaction } = useSendTransaction();
   const [data, setData] = useState<ContestDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -346,6 +346,7 @@ export default function ContestDetailPage() {
             entries={leaderboard}
             loading={lbLoading}
             showPayout={contest.status === "PAID"}
+            currentUserWallet={user?.wallet?.address}
           />
         </section>
       )}
