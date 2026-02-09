@@ -1,9 +1,11 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_URL) {
-  throw new Error(
-    "NEXT_PUBLIC_API_URL is not defined. Set it in .env.local or your deployment environment.",
-  );
+function getApiUrl(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (!url) {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not defined. Set it in .env.local or your deployment environment.",
+    );
+  }
+  return url;
 }
 
 export async function apiFetch<T = unknown>(
@@ -12,8 +14,9 @@ export async function apiFetch<T = unknown>(
   options?: RequestInit,
 ): Promise<T> {
   const token = await getAccessToken();
+  const apiUrl = getApiUrl();
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${apiUrl}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
