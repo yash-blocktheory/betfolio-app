@@ -19,9 +19,7 @@ export default function ContestCard({ contest }: { contest: Contest }) {
           <p>Entry Fee: {contest.entryFee} HYPE</p>
           <p>Starts: {new Date(contest.startTime).toLocaleString()}</p>
           <p>Ends: {new Date(contest.endTime).toLocaleString()}</p>
-          {contest.participantCount !== undefined && contest.participantCount > 0 && (
-            <p>{contest.participantCount} {contest.participantCount === 1 ? "player" : "players"}</p>
-          )}
+          <p>{contest.participantCount ?? 0} {contest.participantCount === 1 ? "player" : "players"}</p>
         </div>
       </div>
     </Link>

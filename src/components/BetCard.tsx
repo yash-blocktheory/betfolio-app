@@ -18,9 +18,7 @@ export default function BetCard({ bet, payoutAmount }: { bet: Bet; payoutAmount?
           {bet.contest.name || bet.contest.contestCategory || "Contest"}
         </p>
         <div className="flex items-center gap-2">
-          {participantCount !== undefined && participantCount > 0 && (
-            <span className="text-xs text-zinc-500">{participantCount} players</span>
-          )}
+          <span className="text-xs text-zinc-500">{participantCount ?? 0} players</span>
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
             {bet.contest.status}
           </span>
