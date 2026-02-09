@@ -37,6 +37,7 @@ export default function ContestDetailPage() {
   >("idle");
   const [existingBet, setExistingBet] = useState<Bet | null>(null);
   const [betCheckDone, setBetCheckDone] = useState(false);
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
 
   const fetchContest = useCallback(() => {
     return apiFetch<ContestDetail>(`/contests/${id}`, getAccessToken)
@@ -108,6 +109,38 @@ export default function ContestDetailPage() {
 
     tick();
     const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [data]);
+
+  // Fetch live prices from Hyperliquid
+  useEffect(() => {
+    if (!data) return;
+    const contest = data.contest;
+    if (contest.status === "RESOLVED" || contest.status === "PAID") return;
+
+    const assets = [...new Set(data.markets.map((m) => m.asset))];
+
+    function fetchPrices() {
+      fetch("https://api.hyperliquid.xyz/info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "allMids" }),
+      })
+        .then((r) => r.json())
+        .then((mids: Record<string, string>) => {
+          const prices: Record<string, number> = {};
+          for (const asset of assets) {
+            if (mids[asset]) {
+              prices[asset] = parseFloat(mids[asset]);
+            }
+          }
+          setLivePrices(prices);
+        })
+        .catch(() => {});
+    }
+
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 3000);
     return () => clearInterval(interval);
   }, [data]);
 
@@ -292,6 +325,7 @@ export default function ContestDetailPage() {
                 selectedChoice={picks[market.id]}
                 onSelect={handleSelect}
                 disabled={isClosed || isUpcoming || !!existingBet}
+                livePrice={livePrices[market.asset]}
               />
             ))}
           </div>
