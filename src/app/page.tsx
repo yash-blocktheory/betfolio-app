@@ -6,14 +6,16 @@ import LoginButton from "@/components/LoginButton";
 import ContestCard from "@/components/ContestCard";
 import BetCard from "@/components/BetCard";
 import { apiFetch } from "@/lib/api";
-import { Contest, Bet } from "@/types/contest";
+import { Contest, Bet, LeaderboardEntry } from "@/types/contest";
 
 const POLL_INTERVAL = 5000;
 
 export default function Home() {
-  const { ready, authenticated, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, getAccessToken } = usePrivy();
   const [contests, setContests] = useState<Contest[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
+  const [payouts, setPayouts] = useState<Record<string, number>>({});
+  const [participants, setParticipants] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,12 +25,43 @@ export default function Home() {
     }
   }, [ready, authenticated, getAccessToken]);
 
-  const fetchData = useCallback(() => {
-    return Promise.all([
+  const fetchData = useCallback(async () => {
+    const [, fetchedBets] = await Promise.all([
       apiFetch<Contest[]>("/contests", getAccessToken).then(setContests),
-      apiFetch<Bet[]>("/bets/me", getAccessToken).then(setBets),
+      apiFetch<Bet[]>("/bets/me", getAccessToken).then((b) => { setBets(b); return b; }),
     ]);
-  }, [getAccessToken]);
+
+    const wallet = user?.wallet?.address?.toLowerCase();
+    if (!wallet) return;
+
+    const paidBets = fetchedBets.filter((b) => b.contest.status === "PAID");
+    if (paidBets.length === 0) return;
+
+    const payoutMap: Record<string, number> = {};
+    const participantMap: Record<string, number> = {};
+    await Promise.all(
+      paidBets.map((bet) =>
+        apiFetch<LeaderboardEntry[]>(
+          `/contests/${bet.contestId}/leaderboard`,
+          getAccessToken,
+        )
+          .then((entries) => {
+            if (entries.length > 0) {
+              participantMap[bet.contestId] = entries.length;
+            }
+            const me = entries.find(
+              (e) => e.user.walletAddress?.toLowerCase() === wallet,
+            );
+            if (me?.payout && me.payout > 0) {
+              payoutMap[bet.contestId] = me.payout;
+            }
+          })
+          .catch(() => {}),
+      ),
+    );
+    setPayouts(payoutMap);
+    setParticipants(participantMap);
+  }, [getAccessToken, user?.wallet?.address]);
 
   useEffect(() => {
     if (!ready || !authenticated) return;
@@ -90,7 +123,7 @@ export default function Home() {
                       <h2 className="mb-4 text-lg font-semibold">Your Completed Bets</h2>
                       <div className="flex flex-col gap-4">
                         {completedBets.map((bet) => (
-                          <BetCard key={bet.id} bet={bet} />
+                          <BetCard key={bet.id} bet={bet} payoutAmount={payouts[bet.contestId]} participantCount={participants[bet.contestId]} />
                         ))}
                       </div>
                     </section>
