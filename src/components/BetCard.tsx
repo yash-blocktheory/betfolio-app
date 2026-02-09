@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Bet } from "@/types/contest";
 
-export default function BetCard({ bet, payoutAmount, participantCount }: { bet: Bet; payoutAmount?: number; participantCount?: number }) {
+export default function BetCard({ bet, payoutAmount }: { bet: Bet; payoutAmount?: number }) {
+  const participantCount = bet.contest.participantCount;
 
   return (
     <Link href={`/contests/${bet.contestId}`}>

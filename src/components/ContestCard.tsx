@@ -16,9 +16,12 @@ export default function ContestCard({ contest }: { contest: Contest }) {
           </span>
         </div>
         <div className="mt-3 flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
-          <p>Entry Fee: {contest.entryFee}</p>
+          <p>Entry Fee: {contest.entryFee} HYPE</p>
           <p>Starts: {new Date(contest.startTime).toLocaleString()}</p>
           <p>Ends: {new Date(contest.endTime).toLocaleString()}</p>
+          {contest.participantCount !== undefined && contest.participantCount > 0 && (
+            <p>{contest.participantCount} {contest.participantCount === 1 ? "player" : "players"}</p>
+          )}
         </div>
       </div>
     </Link>

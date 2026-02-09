@@ -10,6 +10,7 @@ export interface Contest {
   escrowContractAddress?: string;
   escrowContestId?: number;
   escrowStatus?: string;
+  participantCount?: number;
 }
 
 export interface Market {

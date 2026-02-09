@@ -8,6 +8,7 @@ import BetCard from "@/components/BetCard";
 import { apiFetch } from "@/lib/api";
 import { Contest, Bet, LeaderboardEntry } from "@/types/contest";
 
+
 const POLL_INTERVAL = 5000;
 
 type Tab = "active" | "contests" | "completed";
@@ -17,7 +18,6 @@ export default function Home() {
   const [contests, setContests] = useState<Contest[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [payouts, setPayouts] = useState<Record<string, number>>({});
-  const [participants, setParticipants] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("contests");
@@ -41,7 +41,6 @@ export default function Home() {
     if (paidBets.length === 0) return;
 
     const payoutMap: Record<string, number> = {};
-    const participantMap: Record<string, number> = {};
     await Promise.all(
       paidBets.map((bet) =>
         apiFetch<LeaderboardEntry[]>(
@@ -49,9 +48,6 @@ export default function Home() {
           getAccessToken,
         )
           .then((entries) => {
-            if (entries.length > 0) {
-              participantMap[bet.contestId] = entries.length;
-            }
             const me = entries.find(
               (e) => e.user.walletAddress?.toLowerCase() === wallet,
             );
@@ -63,7 +59,6 @@ export default function Home() {
       ),
     );
     setPayouts(payoutMap);
-    setParticipants(participantMap);
   }, [getAccessToken, user?.wallet?.address]);
 
   useEffect(() => {
@@ -174,7 +169,7 @@ export default function Home() {
                 ) : (
                   <div className="flex flex-col gap-4">
                     {completedBets.map((bet) => (
-                      <BetCard key={bet.id} bet={bet} payoutAmount={payouts[bet.contestId]} participantCount={participants[bet.contestId]} />
+                      <BetCard key={bet.id} bet={bet} payoutAmount={payouts[bet.contestId]} />
                     ))}
                   </div>
                 )

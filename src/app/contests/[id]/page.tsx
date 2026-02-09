@@ -291,8 +291,8 @@ export default function ContestDetailPage() {
           <p>Entry Fee: {contest.entryFee}</p>
           <p>Starts: {new Date(contest.startTime).toLocaleString()}</p>
           <p>Ends: {new Date(contest.endTime).toLocaleString()}</p>
-          {(contest.status === "RESOLVED" || contest.status === "PAID") && leaderboard.length > 0 && (
-            <p>Participants: {leaderboard.length}</p>
+          {contest.participantCount !== undefined && contest.participantCount > 0 && (
+            <p>Players: {contest.participantCount}</p>
           )}
         </div>
         {contest.status !== "RESOLVED" && contest.status !== "PAID" && (
