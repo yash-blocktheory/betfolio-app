@@ -1,11 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import { createPublicClient, http, formatEther } from "viem";
+import { hyperliquidEvmTestnet } from "viem/chains";
+
+const publicClient = createPublicClient({
+  chain: hyperliquidEvmTestnet,
+  transport: http(),
+});
 
 export default function LoginButton() {
   const { ready, authenticated, user, login, logout } = usePrivy();
   const [copied, setCopied] = useState(false);
+  const [balance, setBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.wallet?.address) return;
+    const addr = user.wallet.address as `0x${string}`;
+    publicClient.getBalance({ address: addr }).then((bal) => {
+      setBalance(parseFloat(formatEther(bal)).toFixed(4));
+    }).catch(() => setBalance(null));
+  }, [user?.wallet?.address]);
 
   function copyAddress() {
     if (!user?.wallet?.address) return;
@@ -38,15 +54,22 @@ export default function LoginButton() {
           </p>
         )}
         {user?.wallet?.address && (
-          <button
-            onClick={copyAddress}
-            title={user.wallet.address}
-            className="font-mono text-xs text-zinc-500 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors cursor-pointer"
-          >
-            {copied
-              ? "Copied!"
-              : `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copyAddress}
+              title={user.wallet.address}
+              className="font-mono text-xs text-zinc-500 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+            >
+              {copied
+                ? "Copied!"
+                : `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`}
+            </button>
+            {balance !== null && (
+              <span className="font-mono text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {balance} HYPE
+              </span>
+            )}
+          </div>
         )}
       </div>
       <button
