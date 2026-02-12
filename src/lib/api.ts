@@ -27,10 +27,15 @@ export async function apiFetch<T = unknown>(
 
   if (!res.ok) {
     const body = await res.text();
-    if (process.env.NODE_ENV === "development") {
-      console.error(`API error: ${res.status} ${res.statusText}`, body);
+    console.error(`API error: ${res.status} ${res.statusText}`, body);
+    let detail = "";
+    try {
+      const parsed = JSON.parse(body);
+      detail = parsed.message || parsed.error || body;
+    } catch {
+      detail = body;
     }
-    throw new Error(`API error: ${res.status}`);
+    throw new Error(detail || `API error: ${res.status}`);
   }
 
   return res.json();

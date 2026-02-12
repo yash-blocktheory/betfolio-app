@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
+import ServerSignerSetup from "./ServerSignerSetup";
 import { hyperliquidEvmTestnet } from "viem/chains";
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
@@ -27,11 +28,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         supportedChains: [hyperliquidEvmTestnet],
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "users-without-wallets",
+            createOnLogin: "all-users",
           },
         },
       }}
     >
+      <ServerSignerSetup />
       {children}
     </PrivyProvider>
   );

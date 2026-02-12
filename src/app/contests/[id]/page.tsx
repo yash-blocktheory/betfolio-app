@@ -2,15 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { usePrivy, useSendTransaction } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { ContestDetail, LeaderboardEntry, Bet } from "@/types/contest";
-import {
-  ESCROW_CONTRACT_ADDRESS,
-  encodeDepositCall,
-  entryFeeToWei,
-} from "@/lib/escrow";
+import { ContestDetail, LeaderboardEntry, Bet, PaginatedResponse } from "@/types/contest";
+import LoginButton from "@/components/LoginButton";
 import MarketRow from "@/components/MarketRow";
 import Leaderboard from "@/components/Leaderboard";
 
@@ -22,19 +18,17 @@ export default function ContestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { ready, authenticated, user, getAccessToken } = usePrivy();
-  const { sendTransaction } = useSendTransaction();
   const [data, setData] = useState<ContestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [picks, setPicks] = useState<Picks>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+  const [depositStatus, setDepositStatus] = useState<"idle" | "pending" | "confirmed" | "refunded" | "timeout">("idle");
+  const [pendingBetId, setPendingBetId] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [depositStep, setDepositStep] = useState<
-    "idle" | "depositing" | "confirming" | "submitting"
-  >("idle");
   const [existingBet, setExistingBet] = useState<Bet | null>(null);
   const [betCheckDone, setBetCheckDone] = useState(false);
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
@@ -57,9 +51,9 @@ export default function ContestDetailPage() {
   useEffect(() => {
     if (!ready || !authenticated) return;
 
-    apiFetch<Bet[]>("/bets/me", getAccessToken)
-      .then((bets) => {
-        const found = bets.find((b) => b.contestId === id);
+    apiFetch<PaginatedResponse<Bet>>("/bets/me?limit=100", getAccessToken)
+      .then((res) => {
+        const found = res.data.find((b) => b.contestId === id);
         if (found) setExistingBet(found);
       })
       .catch(() => {})
@@ -81,8 +75,8 @@ export default function ContestDetailPage() {
     if (data.contest.status !== "RESOLVED" && data.contest.status !== "PAID") return;
 
     setLbLoading(true);
-    apiFetch<LeaderboardEntry[]>(`/contests/${id}/leaderboard`, getAccessToken)
-      .then(setLeaderboard)
+    apiFetch<PaginatedResponse<LeaderboardEntry>>(`/contests/${id}/leaderboard?limit=100`, getAccessToken)
+      .then((res) => setLeaderboard(res.data))
       .catch(() => setLeaderboard([]))
       .finally(() => setLbLoading(false));
   }, [ready, authenticated, data, id, getAccessToken]);
@@ -168,88 +162,70 @@ export default function ContestDetailPage() {
       return;
     }
 
-    const escrowContestId = data.contest.escrowContestId;
-    if (escrowContestId == null) {
-      setSubmitMsg("This contest is not configured for deposits yet.");
-      return;
-    }
-
     setSubmitting(true);
     setSubmitMsg(null);
-    setDepositStep("depositing");
-
-    let depositTxHash: string;
+    setDepositStatus("idle");
 
     try {
-      const contractAddress =
-        data.contest.escrowContractAddress || ESCROW_CONTRACT_ADDRESS;
-      const callData = encodeDepositCall(escrowContestId);
-      const valueInWei = entryFeeToWei(data.contest.entryFee);
-
-      setSubmitMsg("Please confirm the deposit in your wallet...");
-
-      const receipt = await sendTransaction({
-        to: contractAddress,
-        data: callData,
-        value: valueInWei,
-        chainId: 998,
-        gasLimit: 300000,
-      });
-
-      depositTxHash = receipt.hash;
-      setDepositStep("confirming");
-      setSubmitMsg("Deposit confirmed. Submitting your bet...");
-    } catch (err) {
-      console.error("Deposit transaction error:", err);
-      const message = err instanceof Error ? err.message : "Unknown error";
-      const isUserRejection =
-        message.toLowerCase().includes("rejected") ||
-        message.toLowerCase().includes("denied") ||
-        message.toLowerCase().includes("cancelled");
-
-      setSubmitMsg(
-        isUserRejection
-          ? "Transaction was cancelled."
-          : `Deposit failed: ${message}`
-      );
-      setDepositStep("idle");
-      setSubmitting(false);
-      return;
-    }
-
-    setDepositStep("submitting");
-    try {
-      await apiFetch("/bets", getAccessToken, {
+      const bet = await apiFetch<Bet>("/bets", getAccessToken, {
         method: "POST",
         body: JSON.stringify({
           contestId: id,
-          depositTxHash,
           picks: data.markets.map((m) => ({
             marketId: m.id,
             choice: picks[m.id],
           })),
         }),
       });
-      router.push("/");
-      return;
+
+      setPendingBetId(bet.id);
+      setDepositStatus("pending");
+      setSubmitMsg(null);
+      setSubmitting(false);
     } catch (err) {
-      console.error("Bet submission error after deposit:", err);
-      setSubmitMsg(
-        `Deposit succeeded (tx: ${depositTxHash.slice(0, 10)}...) but bet submission failed. ` +
-        `Please contact support with your tx hash: ${depositTxHash}`
-      );
-    } finally {
-      setDepositStep("idle");
+      const errMsg = err instanceof Error ? err.message : "Unknown error";
+      setSubmitMsg(errMsg);
       setSubmitting(false);
     }
   }
+
+  // Poll for deposit confirmation after bet is placed
+  useEffect(() => {
+    if (depositStatus !== "pending" || !pendingBetId) return;
+
+    const startTime = Date.now();
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiFetch<PaginatedResponse<Bet>>("/bets/me?limit=10", getAccessToken);
+        const bet = res.data.find((b) => b.id === pendingBetId);
+        if (!bet) return;
+
+        if (bet.depositStatus === "CONFIRMED") {
+          setDepositStatus("confirmed");
+          setExistingBet(bet);
+          clearInterval(interval);
+        } else if (bet.depositStatus === "REFUNDED") {
+          setDepositStatus("refunded");
+          clearInterval(interval);
+        } else if (Date.now() - startTime > 60000) {
+          setDepositStatus("timeout");
+          clearInterval(interval);
+        }
+      } catch {
+        // keep polling
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [depositStatus, pendingBetId, getAccessToken]);
 
   if (!ready) return null;
 
   if (!authenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <p className="text-sm text-zinc-500">Please log in to view this contest.</p>
+        <LoginButton />
       </div>
     );
   }
@@ -354,21 +330,60 @@ export default function ContestDetailPage() {
 
       {betCheckDone && !existingBet && markets.length > 0 && contest.status !== "RESOLVED" && contest.status !== "PAID" && !isClosed && !isUpcoming && (
         <div className="mt-8 flex flex-col items-center gap-3">
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="rounded-full bg-foreground px-8 py-3 text-sm font-medium text-background transition-colors hover:opacity-80 disabled:opacity-50"
-          >
-            {submitting
-              ? depositStep === "depositing"
-                ? "Confirming Deposit..."
-                : depositStep === "confirming"
-                ? "Deposit Confirmed..."
-                : depositStep === "submitting"
-                ? "Submitting Bet..."
-                : "Processing..."
-              : `Submit Bet (${data.contest.entryFee} HYPE)`}
-          </button>
+          {depositStatus === "idle" && (
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="rounded-full bg-foreground px-8 py-3 text-sm font-medium text-background transition-colors hover:opacity-80 disabled:opacity-50"
+            >
+              {submitting ? "Placing bet..." : `Submit Bet (${data.contest.entryFee} HYPE)`}
+            </button>
+          )}
+
+          {depositStatus === "pending" && (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 dark:bg-amber-900/20">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+              <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                Bet placed! Confirming deposit...
+              </span>
+            </div>
+          )}
+
+          {depositStatus === "confirmed" && (
+            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 dark:bg-green-900/20">
+              <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                Bet confirmed!
+              </span>
+            </div>
+          )}
+
+          {depositStatus === "refunded" && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 dark:bg-red-900/20">
+                <span className="text-sm font-medium text-red-700 dark:text-red-400">
+                  Deposit failed. No funds charged.
+                </span>
+              </div>
+              <button
+                onClick={() => { setDepositStatus("idle"); setPendingBetId(null); }}
+                className="text-sm text-zinc-500 underline hover:text-zinc-700"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {depositStatus === "timeout" && (
+            <div className="rounded-lg bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
+              <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                Deposit in progress. Check back shortly.
+              </span>
+            </div>
+          )}
+
           {submitMsg && (
             <p className={`text-sm ${submitMsg.includes("failed") || submitMsg.includes("Failed") || submitMsg.includes("cancelled") ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"}`}>
               {submitMsg}
