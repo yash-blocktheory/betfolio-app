@@ -6,6 +6,8 @@ import { usePrivy } from "@privy-io/react-auth";
 import { apiFetch } from "@/lib/api";
 import { Bet, LeaderboardEntry, PaginatedResponse } from "@/types/contest";
 import LoginButton from "@/components/LoginButton";
+import ArenaCard from "@/components/arena/ArenaCard";
+import StatBlock from "@/components/arena/StatBlock";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -22,13 +24,14 @@ export default function ProfilePage() {
     const wallet = user?.wallet?.address?.toLowerCase();
     if (!wallet) return;
 
-    const paidBets = bets.filter((b) => b.contest.status === "PAID");
+    const paidBets = bets.filter((b) => b.round.contest.status === "PAID");
     let winnings = 0;
 
+    const contestIds = [...new Set(paidBets.map((b) => b.round.contest.id))];
     await Promise.all(
-      paidBets.map((bet) =>
+      contestIds.map((contestId) =>
         apiFetch<PaginatedResponse<LeaderboardEntry>>(
-          `/contests/${bet.contestId}/leaderboard?limit=100`,
+          `/contests/${contestId}/leaderboard?limit=100`,
           getAccessToken,
         )
           .then((res) => {
@@ -58,8 +61,9 @@ export default function ProfilePage() {
 
   if (!authenticated) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-sm text-zinc-500">Please log in to view your profile.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6">
+        <img src="/red-ring-full.png" alt="" className="h-16 w-16 object-contain opacity-60" />
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">Login to view your profile</p>
         <LoginButton />
       </div>
     );
@@ -67,21 +71,24 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-2xl px-4 py-8">
-      <h1 className="mb-8 text-2xl font-bold">Profile</h1>
+      <div className="mb-8 flex items-center gap-3">
+        <img src="/red-ring-full.png" alt="" className="h-8 w-8 object-contain" />
+        <h1 className="font-serif text-2xl font-bold tracking-[0.08em] text-white">Profile</h1>
+      </div>
 
-      <div className="rounded-xl border border-zinc-200 p-6 dark:border-zinc-700">
+      <ArenaCard className="p-6">
         {/* User Info */}
-        <div className="mb-6 flex flex-col gap-2">
+        <div className="mb-6 flex flex-col gap-3">
           {user?.email?.address && (
             <div>
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Email</p>
-              <p className="text-sm">{user.email.address}</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">Email</p>
+              <p className="mt-0.5 text-sm font-medium text-wolf-gray-200">{user.email.address}</p>
             </div>
           )}
           {user?.wallet?.address && (
             <div>
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Wallet</p>
-              <p className="font-mono text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">Wallet</p>
+              <p className="mt-0.5 font-mono text-sm text-wolf-gray-400">
                 {user.wallet.address.slice(0, 6)}...{user.wallet.address.slice(-4)}
               </p>
             </div>
@@ -91,34 +98,26 @@ export default function ProfilePage() {
         {/* Stats */}
         {!loading && (
           <div className="mb-6 grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-zinc-50 p-3 text-center dark:bg-zinc-800">
-              <p className="text-xl font-bold">{totalBets}</p>
-              <p className="text-xs text-zinc-500">Bets Placed</p>
-            </div>
-            <div className="rounded-lg bg-zinc-50 p-3 text-center dark:bg-zinc-800">
-              <p className="text-xl font-bold">
-                {totalWinnings > 0 ? totalWinnings.toFixed(2) : "0"}
-              </p>
-              <p className="text-xs text-zinc-500">HYPE Won</p>
-            </div>
+            <StatBlock label="Bets Placed" value={totalBets} />
+            <StatBlock label="HYPE Won" value={totalWinnings > 0 ? totalWinnings.toFixed(2) : "0"} accent />
           </div>
         )}
 
         {loading && (
           <div className="mb-6 grid grid-cols-2 gap-3">
-            <div className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
-            <div className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+            <div className="h-[72px] animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.02]" />
+            <div className="h-[72px] animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.02]" />
           </div>
         )}
 
         {/* Logout */}
         <button
           onClick={() => logout().then(() => router.push("/"))}
-          className="w-full rounded-lg border border-zinc-300 py-3 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="w-full rounded-[10px] border border-white/[0.06] py-3 text-xs font-semibold uppercase tracking-[0.15em] text-wolf-gray-500 transition-all duration-300 hover:border-red-600/30 hover:text-red-400"
         >
-          Log Out
+          Exit Arena
         </button>
-      </div>
+      </ArenaCard>
     </div>
   );
 }

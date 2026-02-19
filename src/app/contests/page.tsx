@@ -6,7 +6,7 @@ import LoginButton from "@/components/LoginButton";
 import ContestCard from "@/components/ContestCard";
 import SkeletonCard from "@/components/SkeletonCard";
 import { apiFetch } from "@/lib/api";
-import { Contest, Bet, PaginatedResponse } from "@/types/contest";
+import { Contest, PaginatedResponse } from "@/types/contest";
 
 const FILTERS = [
   { key: "ALL", label: "All" },
@@ -20,17 +20,12 @@ type FilterKey = (typeof FILTERS)[number]["key"];
 export default function ContestsPage() {
   const { ready, authenticated, getAccessToken } = usePrivy();
   const [contests, setContests] = useState<Contest[]>([]);
-  const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterKey>("ALL");
 
   const fetchData = useCallback(async () => {
-    const [contestRes, betRes] = await Promise.all([
-      apiFetch<PaginatedResponse<Contest>>("/contests?limit=100", getAccessToken),
-      apiFetch<PaginatedResponse<Bet>>("/bets/me?limit=100", getAccessToken),
-    ]);
+    const contestRes = await apiFetch<PaginatedResponse<Contest>>("/contests?limit=100", getAccessToken);
     setContests(contestRes.data);
-    setBets(betRes.data);
   }, [getAccessToken]);
 
   useEffect(() => {
@@ -47,18 +42,18 @@ export default function ContestsPage() {
     return () => clearInterval(interval);
   }, [ready, authenticated, fetchData]);
 
-  const bettedContestIds = new Set(bets.map((b) => b.contestId));
   const available = contests
-    .filter((c) => !bettedContestIds.has(c.id) && (c.status === "UPCOMING" || c.status === "OPEN"))
+    .filter((c) => c.status === "UPCOMING" || c.status === "ACTIVE")
     .filter((c) => filter === "ALL" || c.contestCategory === filter)
-    .sort((a, b) => (a.status === "OPEN" ? -1 : 1) - (b.status === "OPEN" ? -1 : 1));
+    .sort((a, b) => (a.status === "ACTIVE" ? -1 : 1) - (b.status === "ACTIVE" ? -1 : 1));
 
   if (!ready) return null;
 
   if (!authenticated) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-sm text-zinc-500">Please log in to view contests.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6">
+        <img src="/red-ring-full.png" alt="" className="h-16 w-16 object-contain opacity-60" />
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">Login to enter the arena</p>
         <LoginButton />
       </div>
     );
@@ -66,7 +61,7 @@ export default function ContestsPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Contests</h1>
+      <h1 className="mb-8 font-serif text-2xl font-bold tracking-[0.08em] text-white">All Arenas</h1>
 
       {/* Filter Chips */}
       <div className="mb-6 flex gap-2">
@@ -74,10 +69,10 @@ export default function ContestsPage() {
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`rounded-[10px] px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.15em] transition-all duration-200 ${
               filter === f.key
-                ? "bg-foreground text-background"
-                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                ? "border border-red-600/30 bg-red-600/10 text-red-400"
+                : "border border-white/[0.06] bg-white/[0.02] text-wolf-gray-500 hover:border-white/[0.15] hover:text-wolf-gray-300"
             }`}
           >
             {f.label}
@@ -92,9 +87,12 @@ export default function ContestsPage() {
           <SkeletonCard />
         </div>
       ) : available.length === 0 ? (
-        <p className="py-12 text-center text-sm text-zinc-500">
-          No contests available{filter !== "ALL" ? " for this category" : ""}.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-16">
+          <img src="/red-ring-full.png" alt="" className="h-10 w-10 object-contain opacity-20" />
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">
+            No arenas available{filter !== "ALL" ? " for this category" : ""}
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {available.map((contest) => (

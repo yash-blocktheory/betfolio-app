@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import Link from "next/link";
 import LoginButton from "@/components/LoginButton";
 import ContestCard from "@/components/ContestCard";
 import BetCard from "@/components/BetCard";
 import SkeletonCard from "@/components/SkeletonCard";
+import StatBlock from "@/components/arena/StatBlock";
 import { apiFetch } from "@/lib/api";
 import { Contest, Bet, LeaderboardEntry, PaginatedResponse } from "@/types/contest";
 
@@ -29,21 +29,22 @@ export default function Home() {
 
   const fetchData = useCallback(async () => {
     const [, fetchedBets] = await Promise.all([
-      apiFetch<PaginatedResponse<Contest>>("/contests?limit=100", getAccessToken).then((r) => setContests(r.data)),
+      apiFetch<PaginatedResponse<Contest>>("/contests?limit=100", getAccessToken).then((r) => setContests(r.data)).catch(() => setContests([])),
       apiFetch<PaginatedResponse<Bet>>("/bets/me?limit=100", getAccessToken).then((r) => { setBets(r.data); return r.data; }).catch(() => { setBets([]); return [] as Bet[]; }),
     ]);
 
     const wallet = user?.wallet?.address?.toLowerCase();
     if (!wallet) return;
 
-    const paidBets = fetchedBets.filter((b) => b.contest.status === "PAID");
+    const paidBets = fetchedBets.filter((b) => b.round.contest.status === "PAID");
     if (paidBets.length === 0) return;
 
     const payoutMap: Record<string, number> = {};
+    const contestIds = [...new Set(paidBets.map((b) => b.round.contest.id))];
     await Promise.all(
-      paidBets.map((bet) =>
+      contestIds.map((contestId) =>
         apiFetch<PaginatedResponse<LeaderboardEntry>>(
-          `/contests/${bet.contestId}/leaderboard?limit=100`,
+          `/contests/${contestId}/leaderboard?limit=100`,
           getAccessToken,
         )
           .then((res) => {
@@ -51,7 +52,7 @@ export default function Home() {
               (e) => e.user.walletAddress?.toLowerCase() === wallet,
             );
             if (me?.payout && me.payout > 0) {
-              payoutMap[bet.contestId] = me.payout;
+              payoutMap[contestId] = me.payout;
             }
           })
           .catch(() => {}),
@@ -75,33 +76,75 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [ready, authenticated, fetchData]);
 
-  const activeBets = bets.filter((b) => b.contest.status !== "PAID");
-  const completedBets = bets.filter((b) => b.contest.status === "PAID");
-  const bettedContestIds = new Set(bets.map((b) => b.contestId));
+  const activeBets = bets.filter((b) => b.round.contest.status !== "PAID");
   const availableContests = contests
-    .filter((c) => !bettedContestIds.has(c.id) && (c.status === "UPCOMING" || c.status === "OPEN"))
-    .sort((a, b) => (a.status === "OPEN" ? -1 : 1) - (b.status === "OPEN" ? -1 : 1));
+    .filter((c) => c.status === "UPCOMING" || c.status === "ACTIVE")
+    .sort((a, b) => (a.status === "ACTIVE" ? -1 : 1) - (b.status === "ACTIVE" ? -1 : 1));
+  const bettedContestIds = new Set(bets.map((b) => b.round.contest.id));
+  const completedContests = contests
+    .filter((c) => (c.status === "PAID" || c.status === "RESOLVED") && bettedContestIds.has(c.id))
+    .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
 
   const totalWinnings = Object.values(payouts).reduce((sum, v) => sum + v, 0);
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "contests", label: "Contests", count: availableContests.length },
+    { key: "contests", label: "Arenas", count: availableContests.length },
     { key: "active", label: "Active", count: activeBets.length },
-    { key: "completed", label: "Completed", count: completedBets.length },
+    { key: "completed", label: "History", count: completedContests.length },
   ];
 
   return (
     <div className="mx-auto min-h-screen max-w-2xl px-4 py-8">
-      <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Betfolio</h1>
+      <header className="mb-8 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-serif text-xl sm:text-2xl font-bold uppercase tracking-[0.15em] sm:tracking-[0.25em]">
+            <span
+              style={{
+                background: "linear-gradient(180deg, #fff, #d4d4d4 30%, #a0a0a0 60%, #737373)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 0 40px rgba(220, 38, 38, 0.08))",
+              }}
+            >
+              Clash of W
+            </span>
+            <span className="inline-flex items-end justify-center shrink-0" style={{ width: "1em", height: "0.8em" }}>
+              <img src="/red-ring-full.png" alt="O" className="h-[0.8em] w-auto max-w-[1em] object-contain object-bottom bg-black rounded-full" />
+            </span>
+            <span
+              style={{
+                background: "linear-gradient(180deg, #fff, #d4d4d4 30%, #a0a0a0 60%, #737373)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 0 40px rgba(220, 38, 38, 0.08))",
+              }}
+            >
+              lves
+            </span>
+          </h1>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-wolf-gray-500">The Arena</p>
+        </div>
         <LoginButton />
       </header>
 
       {ready && !authenticated && (
-        <div className="flex flex-col items-center gap-4 py-24 text-center">
-          <h2 className="text-3xl font-bold">Predict. Compete. Win.</h2>
-          <p className="max-w-sm text-zinc-500">
-            Join crypto prediction contests, compete against other players, and win HYPE rewards.
+        <div className="flex flex-col items-center gap-6 py-24 text-center">
+          <h2
+            className="font-serif text-2xl sm:text-4xl font-bold uppercase tracking-[0.1em] sm:tracking-[0.15em]"
+            style={{
+              background: "linear-gradient(180deg, #fff, #d4d4d4 30%, #a0a0a0 60%, #737373)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              filter: "drop-shadow(0 0 40px rgba(220, 38, 38, 0.08))",
+            }}
+          >
+            Predict. Compete. Win.
+          </h2>
+          <p className="max-w-sm text-sm font-medium text-wolf-gray-500">
+            Enter the crypto prediction arena. Compete against other players in real-time rounds. Claim your HYPE.
           </p>
           <LoginButton />
         </div>
@@ -116,51 +159,42 @@ export default function Home() {
       )}
 
       {authenticated && error && (
-        <p className="text-center text-sm text-red-500">Unable to load data. Please refresh.</p>
+        <p className="text-center text-sm font-semibold text-red-400">Unable to load data. Please refresh.</p>
       )}
 
       {authenticated && !loading && !error && (
-        <div className="flex flex-col gap-6">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-zinc-200 p-3 text-center dark:border-zinc-700">
-              <p className="text-2xl font-bold">{activeBets.length}</p>
-              <p className="text-xs text-zinc-500">Active Bets</p>
-            </div>
-            <div className="rounded-xl border border-zinc-200 p-3 text-center dark:border-zinc-700">
-              <p className="text-2xl font-bold">{completedBets.length}</p>
-              <p className="text-xs text-zinc-500">Completed</p>
-            </div>
-            <div className="rounded-xl border border-zinc-200 p-3 text-center dark:border-zinc-700">
-              <p className="text-2xl font-bold">{totalWinnings > 0 ? totalWinnings.toFixed(2) : "0"}</p>
-              <p className="text-xs text-zinc-500">HYPE Won</p>
-            </div>
+        <div className="flex flex-col gap-8">
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatBlock label="Active Bets" value={activeBets.length} />
+            <StatBlock label="Completed" value={completedContests.length} />
+            <StatBlock label="HYPE Won" value={totalWinnings > 0 ? totalWinnings.toFixed(2) : "0"} accent />
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-zinc-200 dark:border-zinc-700">
+          <div className="flex border-b border-white/[0.06]">
             {tabs.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`relative px-4 py-3 text-xs font-semibold uppercase tracking-[0.15em] transition-colors duration-200 ${
                   tab === t.key
-                    ? "text-foreground"
-                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                    ? "text-white"
+                    : "text-wolf-gray-600 hover:text-wolf-gray-400"
                 }`}
               >
                 {t.label}
                 {t.count > 0 && (
-                  <span className={`ml-1.5 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-xs ${
+                  <span className={`ml-1.5 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[12px] ${
                     tab === t.key
-                      ? "bg-foreground text-background"
-                      : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400"
+                      ? "bg-red-600/20 text-red-400"
+                      : "bg-white/[0.05] text-wolf-gray-500"
                   }`}>
                     {t.count}
                   </span>
                 )}
                 {tab === t.key && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-wolf-red" />
                 )}
               </button>
             ))}
@@ -169,7 +203,10 @@ export default function Home() {
           {/* Tab Content */}
           {tab === "contests" && (
             availableContests.length === 0 ? (
-              <p className="py-8 text-center text-sm text-zinc-500">No contests available</p>
+              <div className="flex flex-col items-center gap-3 py-12">
+                <img src="/red-ring-full.png" alt="" className="h-10 w-10 object-contain opacity-20" />
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">No arenas available</p>
+              </div>
             ) : (
               <div className="flex flex-col gap-3">
                 {availableContests.map((contest) => (
@@ -181,7 +218,10 @@ export default function Home() {
 
           {tab === "active" && (
             activeBets.length === 0 ? (
-              <p className="py-8 text-center text-sm text-zinc-500">No active bets</p>
+              <div className="flex flex-col items-center gap-3 py-12">
+                <img src="/red-ring-full.png" alt="" className="h-10 w-10 object-contain opacity-20" />
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">No active bets</p>
+              </div>
             ) : (
               <div className="flex flex-col gap-3">
                 {activeBets.map((bet) => (
@@ -192,12 +232,15 @@ export default function Home() {
           )}
 
           {tab === "completed" && (
-            completedBets.length === 0 ? (
-              <p className="py-8 text-center text-sm text-zinc-500">No completed bets</p>
+            completedContests.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-12">
+                <img src="/red-ring-full.png" alt="" className="h-10 w-10 object-contain opacity-20" />
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">No completed contests</p>
+              </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {completedBets.map((bet) => (
-                  <BetCard key={bet.id} bet={bet} payoutAmount={payouts[bet.contestId]} />
+                {completedContests.map((contest) => (
+                  <ContestCard key={contest.id} contest={contest} />
                 ))}
               </div>
             )

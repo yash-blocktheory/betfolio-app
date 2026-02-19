@@ -1,26 +1,97 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Rajdhani:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: #050505;
+  --color-foreground: #e5e5e5;
+  --color-surface-1: #030303;
+  --color-surface-2: #080808;
+  --color-surface-3: #0a0a0a;
+  --color-wolf-red: #dc2626;
+  --color-wolf-red-dim: #7f1d1d;
+  --color-wolf-amber: #f59e0b;
+  --color-wolf-amber-light: #fbbf24;
+  --color-wolf-amber-dark: #b45309;
+  --color-wolf-green: #22c55e;
+  --color-wolf-gray-200: #e5e7eb;
+  --color-wolf-gray-300: #d1d5db;
+  --color-wolf-gray-400: #9ca3af;
+  --color-wolf-gray-500: #6b7280;
+  --color-wolf-gray-600: #4b5563;
+  --color-wolf-gray-700: #374151;
+  --color-wolf-muted: #737373;
+  --font-sans: "Rajdhani", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-serif: "Cinzel", serif;
+
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-fog-1: fogDrift1 25s ease-in-out infinite;
+  --animate-fog-2: fogDrift2 30s ease-in-out infinite;
+  --animate-countdown-pulse: countdown-pulse 1s ease-in-out infinite;
+  --animate-countdown-urgent: countdown-urgent 0.5s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes pulse {
+  50% { opacity: 0.5; }
+}
+
+@keyframes fogDrift1 {
+  0%, 100% { transform: translateX(-25%) translateY(0); }
+  50% { transform: translateX(-10%) translateY(-10px); }
+}
+
+@keyframes fogDrift2 {
+  0%, 100% { transform: translateX(-10%) translateY(0); }
+  50% { transform: translateX(-30%) translateY(5px); }
+}
+
+@keyframes countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes countdown-urgent {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+html {
+  font-size: 16px;
+}
+
+@media (min-width: 640px) {
+  html {
+    font-size: 20px;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #050505;
+  color: #e5e5e5;
+  font-family: "Rajdhani", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* Scrollbar — exact match */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #dc262633;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #dc262659;
+}
+
+/* Selection — exact match */
+::selection {
+  background: #dc26264d;
+  color: #fff;
 }

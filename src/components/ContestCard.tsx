@@ -5,11 +5,11 @@ import Link from "next/link";
 import { Contest } from "@/types/contest";
 
 const statusStyles: Record<string, string> = {
-  OPEN: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400",
-  UPCOMING: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
-  CLOSED: "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400",
-  RESOLVED: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400",
-  PAID: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400",
+  ACTIVE: "bg-red-600/10 text-red-400 border border-red-600/20",
+  UPCOMING: "bg-white/[0.03] text-wolf-gray-500 border border-white/[0.06]",
+  SETTLING: "bg-wolf-amber/10 text-wolf-amber-light border border-wolf-amber/20",
+  RESOLVED: "bg-wolf-amber/10 text-wolf-amber-light border border-wolf-amber/20",
+  PAID: "bg-wolf-amber/10 text-wolf-amber-light border border-wolf-amber/20",
 };
 
 function formatCategory(cat: string) {
@@ -35,7 +35,7 @@ export default function ContestCard({ contest }: { contest: Contest }) {
   const [countdownLabel, setCountdownLabel] = useState<string>("");
 
   useEffect(() => {
-    if (contest.status === "RESOLVED" || contest.status === "PAID" || contest.status === "CLOSED") return;
+    if (contest.status === "RESOLVED" || contest.status === "PAID" || contest.status === "SETTLING") return;
 
     function tick() {
       const now = Date.now();
@@ -43,10 +43,10 @@ export default function ContestCard({ contest }: { contest: Contest }) {
       const end = new Date(contest.endTime).getTime();
 
       if (now < start) {
-        setCountdownLabel("Starts");
+        setCountdownLabel("STARTS");
         setCountdown(formatCountdown(start - now));
       } else if (now < end) {
-        setCountdownLabel("Ends");
+        setCountdownLabel("ENDS");
         setCountdown(formatCountdown(end - now));
       } else {
         setCountdown(null);
@@ -58,43 +58,60 @@ export default function ContestCard({ contest }: { contest: Contest }) {
     return () => clearInterval(interval);
   }, [contest.startTime, contest.endTime, contest.status]);
 
-  const badge = statusStyles[contest.status] || statusStyles.CLOSED;
+  const badge = statusStyles[contest.status] || "bg-white/[0.03] text-wolf-gray-500 border border-white/[0.06]";
+  const isLive = contest.status === "ACTIVE";
 
   return (
     <Link href={`/contests/${contest.id}`}>
-      <div className="w-full rounded-xl border border-zinc-200 p-4 text-left transition-all hover:border-zinc-400 hover:shadow-sm dark:border-zinc-700 dark:hover:border-zinc-500">
-        <div className="flex items-start justify-between gap-2">
+      <div className={`group w-full rounded-xl border bg-white/[0.02] p-3 sm:p-4 text-left transition-all duration-300 hover:bg-white/[0.04] ${
+        isLive
+          ? "border-red-600/20 shadow-[0_0_30px_#dc26260f,inset_0_1px_0_#ffffff0a] hover:shadow-[0_0_40px_#dc26261f,0_0_60px_#dc26260d,inset_0_1px_0_#ffffff0f]"
+          : "border-white/[0.06] hover:border-white/[0.15]"
+      }`}>
+        <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">
+            <p className="font-serif text-sm font-semibold tracking-[0.05em] sm:tracking-[0.08em] text-white">
               {contest.name || formatCategory(contest.contestCategory) || "Contest"}
             </p>
-            {contest.participantCount !== undefined && contest.participantCount > 0 && (
-              <p className="mt-0.5 text-xs text-zinc-500">
-                {contest.participantCount} {contest.participantCount === 1 ? "player" : "players"}
-              </p>
-            )}
+            <div className="mt-1 flex items-center gap-3 text-xs font-medium text-wolf-gray-500">
+              {contest.participantCount !== undefined && contest.participantCount > 0 && (
+                <span>{contest.participantCount} {contest.participantCount === 1 ? "player" : "players"}</span>
+              )}
+              {contest.roundCount !== undefined && contest.roundCount > 0 && (
+                <span>{contest.roundCount} rounds</span>
+              )}
+              {contest.roundDurationSeconds > 0 && (
+                <span>{contest.roundDurationSeconds < 60 ? `${contest.roundDurationSeconds}s` : `${Math.floor(contest.roundDurationSeconds / 60)}m`} each</span>
+              )}
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge}`}>
-              {contest.status}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-[0.15em] ${badge}`}>
+              {isLive && <img src="/red-ring-full.png" alt="" className="h-2.5 w-2.5 object-contain" />}
+              {isLive ? "LIVE" : contest.status}
             </span>
-            <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
-              {contest.entryFee} HYPE
-            </span>
+            {contest.status !== "PAID" && contest.status !== "RESOLVED" && (
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-0.5 font-mono text-[12px] font-semibold text-wolf-gray-300">
+                {contest.entryFee} HYPE
+              </span>
+            )}
           </div>
         </div>
 
         {countdown && (
-          <div className="mt-2">
-            <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-              {countdownLabel} {countdown}
+          <div className="mt-3">
+            <span className="inline-flex items-center gap-1.5 font-mono text-xs text-wolf-gray-500">
+              <span className="text-[12px] uppercase tracking-[0.15em]">{countdownLabel}</span>
+              <span className="text-wolf-gray-300">{countdown}</span>
             </span>
           </div>
         )}
 
-        <div className="mt-2 flex items-center gap-3 text-xs text-zinc-500">
-          <span>Starts: {new Date(contest.startTime).toLocaleString()}</span>
-        </div>
+        {(contest.status === "PAID" || contest.status === "RESOLVED") && (
+          <p className="mt-2 text-[12px] font-semibold uppercase tracking-[0.15em] text-wolf-gray-500">
+            Ended {new Date(contest.endTime).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+          </p>
+        )}
       </div>
     </Link>
   );

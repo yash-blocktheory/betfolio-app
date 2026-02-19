@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import LoginButton from "@/components/LoginButton";
+import ArenaCard from "@/components/arena/ArenaCard";
 import { createPublicClient, http, formatEther } from "viem";
 import { hyperliquidEvmTestnet } from "viem/chains";
 
@@ -47,7 +48,7 @@ export default function WalletPage() {
   if (!authenticated) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-sm text-zinc-500">Please log in to view your wallet.</p>
+        <p className="text-sm font-semibold text-wolf-gray-500">Please log in to view your wallet.</p>
         <LoginButton />
       </div>
     );
@@ -55,16 +56,16 @@ export default function WalletPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-2xl px-4 py-8">
-      <h1 className="mb-8 text-2xl font-bold">Wallet</h1>
+      <h1 className="mb-8 font-serif text-2xl font-bold tracking-[0.08em] text-white">Wallet</h1>
 
-      <div className="rounded-xl border border-zinc-200 p-6 dark:border-zinc-700">
+      <ArenaCard className="p-6">
         {/* Balance */}
         <div className="mb-6 text-center">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Balance</p>
-          <p className="mt-1 text-4xl font-bold">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-wolf-gray-500">Balance</p>
+          <p className="mt-1 text-4xl font-bold text-white">
             {balance !== null ? balance : "---"}
           </p>
-          <p className="text-sm text-zinc-500">HYPE</p>
+          <p className="text-sm font-semibold text-wolf-gray-500">HYPE</p>
         </div>
 
         {/* Address */}
@@ -72,7 +73,7 @@ export default function WalletPage() {
           <div className="flex flex-col items-center gap-3">
             <button
               onClick={copyAddress}
-              className="w-full rounded-lg bg-zinc-100 px-4 py-3 font-mono text-xs text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+              className="w-full rounded-[10px] bg-white/[0.03] px-4 py-3 font-mono text-xs text-wolf-gray-400 transition-colors duration-200 hover:bg-white/[0.05] break-all"
             >
               {copied ? "Copied!" : address}
             </button>
@@ -80,13 +81,13 @@ export default function WalletPage() {
               href={`https://testnet.purrsec.com/address/${address}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+              className="text-xs font-medium text-wolf-gray-500 transition-colors duration-200 hover:text-wolf-gray-300"
             >
               View on Explorer
             </a>
           </div>
         )}
-      </div>
+      </ArenaCard>
     </div>
   );
 }
